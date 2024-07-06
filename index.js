@@ -1,167 +1,121 @@
-document.addEventListener('DOMContentLoaded', function(){
-    const gridCont = document.getElementById('grid-cont');
-    const searchInput = document.getElementById('search-input');
-    const filterSelect = document.getElementById('filter-select');
-    const phrases = [
-        "Sentenced to death",
-        '"Off with their heads!"',
-        "Kicking the bucket",
-        "Dead as a doorknob",
-        "Done for",
-        "Expiring",
-        "Biting the big one",
-        "Off to the glue factory",
-        "Another one bites the dust",
-        "To be turned off",
-        "Like a fork stuck in the outlet",
-        "Scheduled to be killed",
-        "To be exterminated",
-        "To be flushed",
-        "Getting unplugged",
-        "Vanishing",
-        "Going poof",
-        "Turning to ashes",
-        "Getting KO'd",
-        "Running out of juice",
-        "Fading into darkness",
-        "Floating belly up"
-    ];
-    var cacheData = false;
+const [searchInput, filterSelect, gridCont] = document.querySelectorAll('input,select,main');
+const phrases = [
+  'Sentenced to death',
+  '"Off with their heads!"',
+  'Kicking the bucket',
+  'Dead as a doorknob',
+  'Done for',
+  'Expiring',
+  'Biting the big one',
+  'Off to the glue factory',
+  'Another one bites the dust',
+  'To be turned off',
+  'Like a fork stuck in the outlet',
+  'Scheduled to be killed',
+  'To be exterminated',
+  'To be flushed',
+  'Getting unplugged',
+  'Vanishing',
+  'Going poof',
+  'Turning to ashes',
+  "Getting KO'd",
+  'Running out of juice',
+  'Fading into darkness',
+  'Floating belly up'
+];
+const MINUTE = 60000,
+  HOUR = MINUTE * 60,
+  DAY = HOUR * 24,
+  MONTH = DAY * 30.4167, //good enough
+  YEAR = MONTH * 12;
 
-    /*
-    I SEPARATE THE DATA ONLY FOR CONVENIENCE,
-    INCLUDE THIS DATA SERVER SIDE WITH HTML IF WANT BETTER PERFORMANCE & RELIABILITY
-    */
-    var x = new XMLHttpRequest();
-    x.open("GET", 'data/graveyard.json');
-    x.onloadend = function () {
-        if (x.status === 200) {
-            cacheData = JSON.parse(x.responseText);
-            renderGrid(cacheData);
-            renderSelect(cacheData);
-        }else{
-            gridCont.innerHTML = '<div style="text-align:center">Network error</div>';
-        }
-        gridCont.style.minHeight = '0';
-    };
-    x.send();
+const randomPhrase = () => phrases[(Math.random() * phrases.length) | 0];
 
-    //------------------------------------ SELECT OPTIONS --------------------------------------------
-    function renderSelect(grave){
-        var selectHTML = '<option value="any">All ('+grave.length+')</option>';
-        var types = {};
-        for(var i = 0; i < grave.length; i++){
-            if(types[grave[i].type]){
-                types[grave[i].type] += 1;
-            }else{
-                types[grave[i].type] = 1;
-            }
-        }
-        var typeName = Object.keys(types);
-        for(var i = 0; i < typeName.length; i++){
-            selectHTML += `<option value="${typeName[i]}">${typeName[i]}s (${types[typeName[i]]})</option>`;
-        }
-        filterSelect.innerHTML = selectHTML;
-    }
 
-    //----------------------------------------- GRID -------------------------------------------------
-    function renderGrid(grave, keyword = '', type = 'any'){
-        var now = new Date();
-        var gridHTML = '', killedText, ageText, dateFormatted, image;
+const h = (tag, props, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+}
+//------------------------------------ SELECT OPTIONS --------------------------------------------
+const renderOption = (value, textContent) =>
+  h('option', { value }, textContent);
 
-        gridHTML += '<div class="ad"></div>';
+const renderSelect = (grave) => 
+  filterSelect.append(renderOption('any', `All (${grave.length})`), ...Object.entries(Object.groupBy(grave, (item) => item.type)).map(([type, items]) => renderOption(type, `${type} (${items.length})`)));
 
-        //SORT BY RECENT KILL DATE
-        grave.sort(function(a, b){
-            return (a.dateClose > b.dateClose) ? -1 : 1;
-        });
 
-        for (var i = 0; i < grave.length; i++) {
-            if(keyword !== '' && grave[i].name.toLowerCase().indexOf(keyword) === -1 
-                              && grave[i].description.toLowerCase().indexOf(keyword) === -1){
-                continue;
-            }
-            if(type !== 'any' && grave[i].type !== type){
-                continue;
-            }
+//----------------------------------------- GRID -------------------------------------------------
+const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+const renderGrid = (grave, keyword = '', type = 'any') => {
+  const graveStones = grave
+    .filter((stone) => 
+      (stone.name.toLowerCase().includes(keyword) || stone.description.toLowerCase().includes(keyword)) 
+      && (type === 'any' || stone.type === type)
+    ).map((stone) => {
+      const itemDate = new Date(stone.dateClose);
+      const itemAge = humanDistance(new Date(stone.dateOpen), itemDate);
+      const isFuture = itemDate > Date.now();
+      const killedText = isFuture ? `${randomPhrase()} ${relative.format(...itemAge)}` : `Killed about ${relative.format(...itemAge)}`;
+        return (
+          h('article', null,
+            h('div', null, 
+              h('img', { 
+                height: 50, 
+                src: `img/${isFuture ? 'guillotine.svg' : 'tombstone.svg'}`, 
+                alt: ''
+              }), 
+              h('time', null, 
+                isFuture 
+                ? itemDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '\n')
+                : `${stone.dateOpen.split('-')[0]} - ${stone.dateClose.split('-')[0]}`
+              ), 
+              h('div', null, stone.type)
+            ),
+            h('div', null,
+              h('h2', null, 
+                h('a', { href: stone.link, target: '_blank'}, stone.name)
+              ),
+              h('div', null, 
+                `${killedText}, ${stone.description}. ${isFuture ? 'It will be' : 'It was'} ${Math.abs(itemAge[0])} ${itemAge[1]}${Math.abs(itemAge[0]) === 1 ? '' : 's'} old.`)
+            )
+          )
+        )
+    })
 
-            var itemDate = new Date(grave[i].dateClose);
-            var itemAge = humanDistance(new Date(grave[i].dateOpen), itemDate);
+  gridCont.replaceChildren(h('aside'), ...graveStones);
+}
+//------------------------------------------------------------------------------------------------
 
-            if(itemDate > now){
-                dateFormatted = itemDate.toLocaleString('en-US', {month:'long', year:'numeric'}).replace(' ', '<br>');
-                image = 'guillotine.svg';
-                killedText = phrases[Math.floor(Math.random() * phrases.length)] + ' in ' + humanDistance(now, itemDate);
-                ageText = 'It will be';
-            
-            }else{
-                dateFormatted = grave[i].dateOpen.split('-')[0] + ' - ' + grave[i].dateClose.split('-')[0];
-                image = 'tombstone.svg';
-                killedText = 'Killed about ' + humanDistance(itemDate, now) + ' ago';
-                ageText = 'It was';
-            }
 
-            gridHTML += `<div class="grid-item">
-                <div class="item-left">
-                    <img height="50" alt="" src="img/${image}">
-                    <div class="item-time">${dateFormatted}</div>
-                    <div class="item-tag">${grave[i].type}</div>
-                </div>
-                <div class="item-right">
-                    <h2 class="item-title">
-                        <a href="${grave[i].link}" target="_blank">${grave[i].name}</a>
-                    </h2>
-                    <div class="item-desc">
-                        ${killedText}, ${grave[i].description}. ${ageText} ${itemAge} old.
-                    </div>
-                </div>
-            </div>`;
-        }
+const changeFilter = (cacheData) => {
+  const keyword = searchInput.value.toLowerCase();
+  const type = filterSelect.value;
+  renderGrid(cacheData, keyword, type);
+}
 
-        gridCont.innerHTML = gridHTML;
-    }
-    //------------------------------------------------------------------------------------------------
+const humanDistance = (dateCompare) => {
+  const delta = dateCompare.getTime() - Date.now();
+  if (Math.abs(delta) < MONTH)
+    return [delta / DAY | 0, 'day'];
+  if (Math.abs(delta) < YEAR)
+    return [delta / MONTH | 0, 'month'];
+  return [delta / YEAR | 0, 'year'];
+}
 
-    searchInput.addEventListener('keyup', changeFilter);
-    filterSelect.addEventListener('change', changeFilter);
-    function changeFilter(){
-        if(!cacheData){
-            return;
-        }
-        var keyword = searchInput.value.toLowerCase();
-        var type = filterSelect.value;
 
-        renderGrid(cacheData, keyword, type);
-    }
+const res = await fetch('data/graveyard.min.json');
 
-    function humanDistance(dateFrom, dateTo){
-        var delta = Math.abs(dateTo.getTime() - dateFrom.getTime());
-        var unit = '';
-        var minute = 60000,
-            hour = minute * 60,
-            day = hour * 24,
-            month = day * 30.4167,   //good enough
-            year = month * 12;
-
-        if(delta < day){
-            return "less than a day";
-        }
-
-        if(delta < month){
-            delta /= day;
-            unit = " day";
-        }else if(delta < year){
-            delta /= month;
-            unit = " month";
-        }else{
-            delta /= year;
-            unit = " year";
-        }
-
-        delta = Math.floor(delta);
-        if(delta > 1){
-            unit += 's';
-        }
-        return delta + unit;
-    }
-});
+if (res.ok) {
+  const cacheData = (await res.json()).map(
+    ([dateClose, dateOpen, description, link, name, type]) => 
+      ({dateClose, dateOpen, description, link, name, type })
+  ).sort((a, b) => new Date(b.dateClose).getTime() - new Date(a.dateClose).getTime());
+  renderGrid(cacheData);
+  renderSelect(cacheData);
+  const change = changeFilter.bind(null, cacheData);
+  searchInput.addEventListener('input', change);
+  filterSelect.addEventListener('change', change);
+} else {
+  gridCont.append(h('div', { style: { textAlign: 'center' } }, 'Network error'));
+}
