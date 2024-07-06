@@ -104,10 +104,13 @@ const humanDistance = (dateCompare) => {
 }
 
 
-const res = await fetch('data/graveyard.json');
+const res = await fetch('data/graveyard.min.json');
 
 if (res.ok) {
-  const cacheData = (await res.json()).sort((a, b) => new Date(b.dateClose).getTime() - new Date(a.dateClose).getTime());
+  const cacheData = (await res.json()).map(
+    ([dateClose, dateOpen, description, link, name, type]) => 
+      ({dateClose, dateOpen, description, link, name, type })
+  ).sort((a, b) => new Date(b.dateClose).getTime() - new Date(a.dateClose).getTime());
   renderGrid(cacheData);
   renderSelect(cacheData);
   const change = changeFilter.bind(null, cacheData);
