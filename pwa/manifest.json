@@ -1,0 +1,27 @@
+{
+  "short_name": "Killed by Google",
+  "name": "Killed by Google",
+  "description": "A full list of dead products killed by Google in the Google Cemetery",
+  "icons": [
+    {
+      "src": "img/android-icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "img/apple-icon-180x180.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "img/apple-icon-120x120.png",
+      "type": "image/png",
+      "sizes": "120x120"
+    }
+  ],
+  "start_url": "/pwa/",
+  "background_color": "#FAFAFA",
+  "display": "standalone",
+  "scope": "/pwa/",
+  "theme_color": "#FAFAFA"
+}
